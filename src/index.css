@@ -1,0 +1,45 @@
+@import "tailwindcss";
+
+@theme {
+  --color-cyber-dark: #0f172a;
+  --color-cyber-darker: #020617;
+  --color-cyber-neon: #22d3ee;
+  --color-cyber-primary: #3b82f6;
+  --color-cyber-success: #22c55e;
+  --color-cyber-warning: #eab308;
+  --color-cyber-danger: #ef4444;
+}
+
+body {
+  @apply bg-cyber-darker text-gray-200 antialiased;
+}
+
+/* Custom scrollbar for cyber feel */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-cyber-darker);
+}
+::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #334155;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
