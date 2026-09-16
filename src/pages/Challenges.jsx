@@ -52,17 +52,20 @@ const Challenges = ({ user }) => {
   const hasGuideRevealed = selectedChallenge && revealedGuides.includes(selectedChallenge.id);
 
   return (
-    <div className="container mx-auto p-6 flex flex-col lg:flex-row gap-6">
+    <div className="container mx-auto p-4 sm:p-6 lg:p-8 flex flex-col lg:flex-row gap-8">
       <div className="flex-1 space-y-6">
-        <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold text-gray-100">Training Grounds</h1>
-          <div className="flex space-x-2">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-cyber-dark/50 p-4 sm:p-6 rounded-xl border border-gray-800">
+          <div>
+            <h1 className="text-3xl font-black text-white">Training Grounds</h1>
+            <p className="text-sm text-gray-400 mt-1">Pilih misi untuk memulai simulasi peretasan.</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
             {['All', 'Easy', 'Medium', 'Hard', 'Very Hard'].map(lvl => (
               <button 
                 key={lvl}
                 onClick={() => setFilter(lvl)}
-                className={`px-4 py-2 rounded text-sm font-semibold transition-colors ${
-                  filter === lvl ? 'bg-cyber-primary text-white' : 'bg-cyber-dark text-gray-400 hover:bg-gray-800'
+                className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+                  filter === lvl ? 'bg-cyber-primary text-white shadow-[0_0_10px_rgba(6,182,212,0.4)]' : 'bg-gray-900 border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500'
                 }`}
               >
                 {lvl}
@@ -75,41 +78,54 @@ const Challenges = ({ user }) => {
           {filteredChallenges.map(c => {
             const isSolved = solvedIds.includes(c.id);
             const isRevealed = revealedGuides.includes(c.id);
+            const isSelected = selectedChallenge?.id === c.id;
             return (
               <div 
                 key={c.id} 
                 onClick={() => handleSelect(c)}
-                className={`bg-cyber-dark border p-5 rounded-lg cursor-pointer transition-all ${
-                  selectedChallenge?.id === c.id ? 'border-cyber-neon shadow-[0_0_10px_rgba(34,211,238,0.2)]' : 'border-gray-800 hover:border-gray-600'
-                } ${isSolved ? 'opacity-70' : ''}`}
+                className={`group border p-5 rounded-xl cursor-pointer transition-all flex flex-col justify-between min-h-[140px] ${
+                  isSelected 
+                    ? 'bg-cyber-dark border-cyber-neon shadow-[0_0_15px_rgba(34,211,238,0.2)]' 
+                    : isSolved 
+                      ? 'bg-green-900/10 border-green-900/30 opacity-75 hover:opacity-100' 
+                      : 'bg-gray-900/40 border-gray-800 hover:bg-gray-800/60 hover:border-gray-600'
+                }`}
               >
-                <div className="flex justify-between items-start mb-2">
-                  <h3 className={`text-lg font-bold ${isSolved ? 'text-green-500' : 'text-gray-200'} truncate mr-2`}>
-                    {isSolved && <CheckCircle size={16} className="inline mr-2" />}
-                    {c.title}
-                  </h3>
-                  <span className="text-gray-400 font-mono text-sm whitespace-nowrap">{c.points} pts</span>
+                <div>
+                  <div className="flex justify-between items-start gap-3 mb-3">
+                    <h3 className={`text-lg font-bold leading-tight ${isSolved ? 'text-green-500' : 'text-gray-100'} line-clamp-2`}>
+                      {isSolved && <CheckCircle size={18} className="inline mr-2 -mt-1" />}
+                      {c.title}
+                    </h3>
+                    <div className="bg-gray-950 border border-gray-800 px-3 py-1 rounded-md shadow-inner flex-shrink-0">
+                      <span className="text-cyber-warning font-mono font-black text-sm whitespace-nowrap">{c.points} pts</span>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center space-x-3 text-sm mt-2 flex-wrap gap-y-2">
-                  <span className={`px-2 py-0.5 rounded font-bold ${
-                    c.difficulty === 'Easy' ? 'text-green-400 bg-green-400/10' :
-                    c.difficulty === 'Medium' ? 'text-yellow-400 bg-yellow-400/10' :
-                    c.difficulty === 'Hard' ? 'text-orange-400 bg-orange-400/10' :
-                    'text-red-400 bg-red-400/10'
+                
+                <div className="flex flex-wrap items-center gap-2 mt-auto pt-2 border-t border-gray-800/50 group-hover:border-gray-700/50 transition-colors">
+                  <span className={`px-2.5 py-1 rounded-md text-xs font-black uppercase tracking-wider ${
+                    c.difficulty === 'Easy' ? 'text-green-400 bg-green-400/10 border border-green-400/20' :
+                    c.difficulty === 'Medium' ? 'text-yellow-400 bg-yellow-400/10 border border-yellow-400/20' :
+                    c.difficulty === 'Hard' ? 'text-orange-400 bg-orange-400/10 border border-orange-400/20' :
+                    'text-red-400 bg-red-400/10 border border-red-400/20'
                   }`}>
                     {c.difficulty}
                   </span>
-                  <span className="text-gray-500">{c.category}</span>
-                  {c.requiresLab && (
-                    <span className="flex items-center text-cyber-neon" title="Requires Virtual Lab">
-                      <Server size={14} className="mr-1" /> Lab
-                    </span>
-                  )}
-                  {isRevealed && (
-                    <span className="flex items-center text-blue-400 bg-blue-400/10 px-2 py-0.5 rounded font-bold ml-auto">
-                      <BookOpen size={14} className="mr-1" /> Panduan Tersedia
-                    </span>
-                  )}
+                  <span className="text-gray-400 text-xs font-bold uppercase tracking-widest">{c.category}</span>
+                  
+                  <div className="ml-auto flex items-center gap-2">
+                    {c.requiresLab && (
+                      <span className="flex items-center text-cyber-neon bg-cyan-900/20 px-2 py-1 rounded border border-cyan-900/50 text-xs font-bold" title="Requires Virtual Lab">
+                        <Server size={12} className="mr-1" /> Lab
+                      </span>
+                    )}
+                    {isRevealed && (
+                      <span className="flex items-center text-blue-400 bg-blue-900/20 px-2 py-1 rounded border border-blue-900/50 text-xs font-bold" title="Panduan Tersedia">
+                        <BookOpen size={12} className="mr-1" /> Hint
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             );
