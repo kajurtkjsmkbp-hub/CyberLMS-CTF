@@ -96,9 +96,13 @@ export const getStudentStats = (studentId) => {
   let firstBloodCount = 0;
   
   p.solved.forEach(s => {
-    totalPoints += getDynamicPoints(s.id);
-    if (stats[s.id]?.firstBlood === studentId) {
-      totalPoints += Math.floor(getBasePoints(s.id) * 0.1); // 10% bonus for FB
+    const chalId = typeof s === 'object' ? s.id : s;
+    const pts = getDynamicPoints(chalId);
+    if (!isNaN(pts)) totalPoints += pts;
+    
+    if (stats[chalId]?.firstBlood === studentId) {
+      const bonus = Math.floor(getBasePoints(chalId) * 0.1);
+      if (!isNaN(bonus)) totalPoints += bonus;
       firstBloodCount++;
     }
   });
@@ -135,7 +139,10 @@ const evaluateBadges = (studentId) => {
   const progress = JSON.parse(localStorage.getItem('progress')) || {};
   const p = progress[studentId] || { solved: [] };
   
-  const solvedCategories = p.solved.map(s => getChallengeCategory(s.id));
+  const solvedCategories = p.solved.map(s => {
+    const chalId = typeof s === 'object' ? s.id : s;
+    return getChallengeCategory(chalId);
+  });
   const stats = getStudentStats(studentId);
 
   // Gamification Rules
@@ -158,7 +165,7 @@ export const updateStudentProgress = (studentId, challengeId, basePointsIgnored)
   if (!progress[studentId]) progress[studentId] = { solved: [], current: null };
   if (!stats[challengeId]) stats[challengeId] = { solves: [], firstBlood: null };
   
-  const hasSolved = progress[studentId].solved.find(s => s.id === challengeId);
+  const hasSolved = progress[studentId].solved.find(s => (typeof s === 'object' ? s.id : s) === challengeId);
   if (!hasSolved) {
     const timestamp = Date.now();
     // Record solve
