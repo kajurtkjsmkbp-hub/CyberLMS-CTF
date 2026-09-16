@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { getCurrentUser, getBattleConfig, getStudentBattleProgress, updateBattleProgress } from '../utils/db';
 import { challenges as allChallenges } from '../data/challenges';
-import { Swords, Clock, AlertTriangle, CheckCircle2, ShieldAlert } from 'lucide-react';
+import { Swords, Clock, AlertTriangle, CheckCircle2, ShieldAlert, ChevronRight } from 'lucide-react';
 import TerminalLab from '../components/TerminalLab';
 
 const BattleArena = () => {
