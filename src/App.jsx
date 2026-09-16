@@ -25,9 +25,9 @@ function App() {
 
   return (
     <Router>
-      <div className="min-h-screen bg-cyber-darker text-gray-200 font-sans">
+      <div className="min-h-screen bg-cyber-darker text-gray-200 font-sans flex flex-col">
         <Navbar user={user} onLogout={() => setUser(null)} />
-        <main>
+        <main className="flex-1 pb-10">
           <Routes>
             <Route 
               path="/login" 
@@ -71,6 +71,17 @@ function App() {
             />
           </Routes>
         </main>
+
+        <footer className="w-full border-t border-gray-800/60 bg-cyber-dark/30 py-6 mt-auto backdrop-blur-sm">
+          <div className="container mx-auto px-4 text-center">
+            <p className="text-gray-500 text-sm font-medium tracking-wide">
+              &copy; {new Date().getFullYear()} <span className="text-cyber-neon font-bold">CyberLMS CTF Platform</span>. All rights reserved.
+            </p>
+            <p className="text-gray-600 text-xs mt-2 uppercase tracking-widest">
+              Designed & Engineered by <span className="text-gray-400 font-bold">Adiningtyas Yuli Purwanto, S.Kom</span>
+            </p>
+          </div>
+        </footer>
       </div>
     </Router>
   );
