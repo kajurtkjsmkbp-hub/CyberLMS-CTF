@@ -1,18 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { challenges } from '../data/challenges';
-import { Flag, TerminalSquare, AlertTriangle, CheckCircle, Server } from 'lucide-react';
+import { Flag, TerminalSquare, AlertTriangle, CheckCircle, Server, BookOpen } from 'lucide-react';
 import TerminalLab from '../components/TerminalLab';
-import { updateStudentProgress, updateCurrentActivity } from '../utils/db';
+import { updateStudentProgress, updateCurrentActivity, getRevealedGuides } from '../utils/db';
 
 const Challenges = ({ user }) => {
   const [filter, setFilter] = useState('All');
   const [selectedChallenge, setSelectedChallenge] = useState(null);
   const [flagInput, setFlagInput] = useState('');
   const [status, setStatus] = useState(null);
-  
-  // Track locally solved to disable inputs if already solved
-  const progressData = JSON.parse(localStorage.getItem('progress') || '{}')[user.id] || { solved: [] };
+  const [revealedGuides, setRevealedGuides] = useState([]);
+  const [showSolution, setShowSolution] = useState(false);
+
+  const progressData = JSON.parse(localStorage.getItem('progress'))?.[user.id] || { points: 0, solved: [] };
   const [solvedIds, setSolvedIds] = useState(progressData.solved);
+
+  useEffect(() => {
+    // Refresh revealed guides from DB periodically just in case teacher updates it live
+    const interval = setInterval(() => {
+      setRevealedGuides(getRevealedGuides());
+    }, 2000);
+    setRevealedGuides(getRevealedGuides());
+    return () => clearInterval(interval);
+  }, []);
 
   const filteredChallenges = filter === 'All' 
     ? challenges 
@@ -22,6 +32,7 @@ const Challenges = ({ user }) => {
     setSelectedChallenge(c);
     setStatus(null);
     setFlagInput('');
+    setShowSolution(false); // Reset solution view state
     updateCurrentActivity(user.id, c.title);
   };
 
@@ -38,8 +49,10 @@ const Challenges = ({ user }) => {
     }
   };
 
+  const hasGuideRevealed = selectedChallenge && revealedGuides.includes(selectedChallenge.id);
+
   return (
-    <div className="container mx-auto p-6 flex gap-6">
+    <div className="container mx-auto p-6 flex flex-col lg:flex-row gap-6">
       <div className="flex-1 space-y-6">
         <div className="flex justify-between items-center">
           <h1 className="text-3xl font-bold text-gray-100">Training Grounds</h1>
@@ -61,6 +74,7 @@ const Challenges = ({ user }) => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {filteredChallenges.map(c => {
             const isSolved = solvedIds.includes(c.id);
+            const isRevealed = revealedGuides.includes(c.id);
             return (
               <div 
                 key={c.id} 
@@ -70,13 +84,13 @@ const Challenges = ({ user }) => {
                 } ${isSolved ? 'opacity-70' : ''}`}
               >
                 <div className="flex justify-between items-start mb-2">
-                  <h3 className={`text-lg font-bold ${isSolved ? 'text-green-500' : 'text-gray-200'}`}>
+                  <h3 className={`text-lg font-bold ${isSolved ? 'text-green-500' : 'text-gray-200'} truncate mr-2`}>
                     {isSolved && <CheckCircle size={16} className="inline mr-2" />}
                     {c.title}
                   </h3>
-                  <span className="text-gray-400 font-mono text-sm">{c.points} pts</span>
+                  <span className="text-gray-400 font-mono text-sm whitespace-nowrap">{c.points} pts</span>
                 </div>
-                <div className="flex items-center space-x-3 text-sm mt-2">
+                <div className="flex items-center space-x-3 text-sm mt-2 flex-wrap gap-y-2">
                   <span className={`px-2 py-0.5 rounded font-bold ${
                     c.difficulty === 'Easy' ? 'text-green-400 bg-green-400/10' :
                     c.difficulty === 'Medium' ? 'text-yellow-400 bg-yellow-400/10' :
@@ -87,8 +101,13 @@ const Challenges = ({ user }) => {
                   </span>
                   <span className="text-gray-500">{c.category}</span>
                   {c.requiresLab && (
-                    <span className="flex items-center text-cyber-neon ml-auto" title="Requires Virtual Lab">
+                    <span className="flex items-center text-cyber-neon" title="Requires Virtual Lab">
                       <Server size={14} className="mr-1" /> Lab
+                    </span>
+                  )}
+                  {isRevealed && (
+                    <span className="flex items-center text-blue-400 bg-blue-400/10 px-2 py-0.5 rounded font-bold ml-auto">
+                      <BookOpen size={14} className="mr-1" /> Panduan Tersedia
                     </span>
                   )}
                 </div>
@@ -99,12 +118,23 @@ const Challenges = ({ user }) => {
       </div>
 
       {/* Sidebar Detail */}
-      <div className="w-1/2 bg-cyber-dark border border-gray-800 rounded-lg p-6 h-fit sticky top-24 max-h-[85vh] overflow-y-auto">
+      <div className="w-full lg:w-1/2 bg-cyber-dark border border-gray-800 rounded-lg p-6 h-fit lg:sticky top-24 max-h-[85vh] overflow-y-auto custom-scrollbar">
         {selectedChallenge ? (
           <div>
-            <div className="flex items-center space-x-2 text-cyber-neon mb-4">
-              <TerminalSquare size={24} />
-              <h2 className="text-xl font-bold">Challenge Briefing</h2>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-2 text-cyber-neon">
+                <TerminalSquare size={24} />
+                <h2 className="text-xl font-bold">Challenge Briefing</h2>
+              </div>
+              {hasGuideRevealed && (
+                <button 
+                  onClick={() => setShowSolution(!showSolution)}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded flex items-center text-sm font-bold shadow-[0_0_10px_rgba(37,99,235,0.3)] transition-colors"
+                >
+                  <BookOpen size={16} className="mr-2" />
+                  {showSolution ? 'Sembunyikan Panduan' : 'Lihat Panduan Guru'}
+                </button>
+              )}
             </div>
             
             <h3 className="text-2xl font-bold text-gray-100 mb-2">{selectedChallenge.title}</h3>
@@ -116,12 +146,22 @@ const Challenges = ({ user }) => {
             </div>
 
             <div className="prose prose-invert max-w-none mb-8">
-              <p className="text-gray-300 leading-relaxed">{selectedChallenge.description}</p>
+              <p className="text-gray-300 leading-relaxed whitespace-pre-line">{selectedChallenge.description}</p>
               
               <div className="mt-4 p-4 bg-gray-900 rounded border border-gray-800 border-l-4 border-l-cyber-warning">
                 <p className="text-sm text-gray-400 font-semibold mb-1 flex items-center"><AlertTriangle size={16} className="mr-2" /> Hint</p>
                 <p className="text-gray-300 text-sm">{selectedChallenge.hint}</p>
               </div>
+
+              {/* Tampilan Panduan jika diaktifkan Guru & di-klik oleh Siswa */}
+              {hasGuideRevealed && showSolution && (
+                <div className="mt-4 p-5 bg-blue-900/20 rounded border border-blue-800 border-l-4 border-l-blue-500 animate-fade-in">
+                  <p className="text-sm text-blue-400 font-bold mb-3 flex items-center border-b border-blue-900/50 pb-2">
+                    <BookOpen size={16} className="mr-2" /> Panduan Langkah demi Langkah dari Guru
+                  </p>
+                  <p className="text-gray-300 text-sm whitespace-pre-line leading-relaxed">{selectedChallenge.solution}</p>
+                </div>
+              )}
             </div>
 
             {selectedChallenge.requiresLab && selectedChallenge.labEnvironment && (

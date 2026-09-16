@@ -122,3 +122,16 @@ export const updateBattleProgress = (studentId, challengeId, points) => {
   return false;
 };
 export const clearBattleProgress = () => localStorage.setItem('battleProgress', JSON.stringify({}));
+
+// --- GUIDE / HINT REVEAL CONFIGURATION ---
+export const getRevealedGuides = () => JSON.parse(localStorage.getItem('revealedGuides') || '[]');
+export const toggleRevealedGuide = (challengeId) => {
+  let guides = getRevealedGuides();
+  if (guides.includes(challengeId)) {
+    guides = guides.filter(id => id !== challengeId);
+  } else {
+    guides.push(challengeId);
+  }
+  localStorage.setItem('revealedGuides', JSON.stringify(guides));
+  return guides;
+};
