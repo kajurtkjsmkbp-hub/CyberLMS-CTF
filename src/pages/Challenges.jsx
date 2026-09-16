@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { challenges } from '../data/challenges';
 import { Flag, TerminalSquare, AlertTriangle, CheckCircle, Server } from 'lucide-react';
 import TerminalLab from '../components/TerminalLab';
-import { updateStudentProgress, setCurrentWorkingChallenge } from '../utils/db';
+import { updateStudentProgress, updateCurrentActivity } from '../utils/db';
 
 const Challenges = ({ user }) => {
   const [filter, setFilter] = useState('All');
@@ -22,7 +22,7 @@ const Challenges = ({ user }) => {
     setSelectedChallenge(c);
     setStatus(null);
     setFlagInput('');
-    setCurrentWorkingChallenge(user.id, c.title);
+    updateCurrentActivity(user.id, c.title);
   };
 
   const handleSolve = (e) => {
