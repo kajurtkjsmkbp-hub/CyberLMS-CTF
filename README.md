@@ -83,3 +83,28 @@ systemctl enable nginx
 
 ### 🎉 Selesai!
 Aplikasi LMS CTF Anda kini sudah online di dalam jaringan Proxmox. Buka browser dan ketikkan **Alamat IP dari LXC** tersebut (misal: `http://192.168.1.50`). Selamat berlatih!
+
+---
+
+## 🔄 Cara Melakukan Pembaruan (Update)
+Jika di kemudian hari Anda melakukan perubahan (*edit*) pada source code dan mengunggahnya (*push*) lagi ke GitHub, Anda dapat memperbarui aplikasi di server LXC Anda tanpa harus mengulang dari awal. Ikuti langkah singkat ini di terminal LXC Anda:
+
+1. **Masuk ke folder proyek:**
+   ```bash
+   cd /root/CyberLMS-CTF
+   ```
+2. **Tarik (*Pull*) pembaruan terbaru dari GitHub:**
+   ```bash
+   git pull origin main
+   ```
+3. **Build ulang aplikasinya:**
+   ```bash
+   npm install
+   npm run build
+   ```
+4. **Timpa (*Replace*) file Nginx lama dengan hasil build terbaru:**
+   ```bash
+   rm -rf /var/www/html/*
+   cp -r dist/* /var/www/html/
+   ```
+   *(Sistem akan otomatis menggunakan kode baru, Nginx tidak perlu di-restart).*
