@@ -169,9 +169,12 @@ const TeacherDashboard = () => {
     Object.keys(progressData).forEach(studentId => {
       const studentName = students.find(s => s.id === studentId)?.name || 'Unknown';
       let cumulative = 0;
-      progressData[studentId].solved.forEach(solve => {
+      progressData[studentId].solved.forEach((solve, i) => {
         cumulative += 1; // Simplified points timeline
-        events.push({ time: solve.timestamp, student: studentName, score: cumulative });
+        // Check for legacy string data
+        let timestamp = typeof solve === 'object' ? solve.timestamp : (Date.now() - (1000000 * (10 - i))); 
+        if (!timestamp) timestamp = Date.now();
+        events.push({ time: timestamp, student: studentName, score: cumulative });
       });
     });
 
