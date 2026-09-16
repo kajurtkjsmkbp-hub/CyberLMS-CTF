@@ -168,7 +168,16 @@ const Dashboard = ({ user }) => {
               ) : (
                 <div>
                   <h3 className="text-2xl font-black text-purple-400 mb-2">{myTeam.name}</h3>
-                  <p className="text-gray-400 mb-4">Anggota: {myTeam.members?.length || 0}</p>
+                  <div className="mb-4">
+                    <p className="text-gray-400 text-sm mb-2">Anggota Tim ({myTeam.members?.length || 0}):</p>
+                    <div className="flex flex-wrap gap-2">
+                      {myTeam.members?.map(m => (
+                        <span key={m} className="bg-purple-900/40 border border-purple-500/50 text-purple-300 px-3 py-1 rounded-full text-sm font-bold flex items-center">
+                          <User size={14} className="mr-1" /> {m}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
                   
                   <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-800">
                     <h4 className="font-bold text-gray-300 mb-2">Team Leaderboard</h4>
