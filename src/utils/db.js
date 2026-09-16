@@ -28,7 +28,7 @@ export const login = (username, password) => {
   const users = JSON.parse(localStorage.getItem('users'));
   const user = users.find(u => u.username === username && u.password === password);
   if (user) {
-    if (user.role === 'teacher' && user.isActive === false) throw new Error('Akun dinonaktifkan sementara');
+    if (user.isActive === false) throw new Error('Akun dinonaktifkan sementara');
     localStorage.setItem('currentUser', JSON.stringify(user));
     return user;
   }
@@ -44,6 +44,7 @@ export const createTeam = (name) => {
   const id = 'team_' + Date.now();
   teams.push({ id, name, members: [] });
   localStorage.setItem('teams', JSON.stringify(teams));
+  return id;
 };
 export const assignStudentToTeam = (studentId, teamId) => {
   let users = JSON.parse(localStorage.getItem('users'));
@@ -52,6 +53,23 @@ export const assignStudentToTeam = (studentId, teamId) => {
     users[userIdx].teamId = teamId;
     localStorage.setItem('users', JSON.stringify(users));
   }
+};
+
+export const updateStudent = (studentId, updates) => {
+  let users = JSON.parse(localStorage.getItem('users'));
+  let index = users.findIndex(u => u.id === studentId);
+  if (index !== -1) {
+    users[index] = { ...users[index], ...updates };
+    localStorage.setItem('users', JSON.stringify(users));
+    return true;
+  }
+  return false;
+};
+
+export const deleteStudent = (studentId) => {
+  let users = JSON.parse(localStorage.getItem('users'));
+  users = users.filter(u => u.id !== studentId);
+  localStorage.setItem('users', JSON.stringify(users));
 };
 
 // --- DYNAMIC SCORING & PROGRESS ---

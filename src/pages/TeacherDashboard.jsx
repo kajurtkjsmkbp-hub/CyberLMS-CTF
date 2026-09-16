@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { getAllStudentsProgress, getTeamStats, registerTeacher, getAllTeachers, updateTeacher, deleteTeacher, getCurrentUser, getBattleConfig, setBattleConfig, getBattleProgress, clearBattleProgress } from '../utils/db';
+import { getAllStudentsProgress, getTeamStats, registerTeacher, getAllTeachers, updateTeacher, deleteTeacher, updateStudent, deleteStudent, getCurrentUser, getBattleConfig, setBattleConfig, getBattleProgress, clearBattleProgress } from '../utils/db';
 import { challenges as allChallenges } from '../data/challenges';
 import { Users, UserPlus, BookOpen, Key, Edit, Trash2, PowerOff, Power, CheckCircle2, Trophy, Medal, Swords, Clock, Play, Square, LineChart, Activity } from 'lucide-react';
 import { LineChart as RechartsLine, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
@@ -128,6 +128,29 @@ const TeacherDashboard = () => {
     }
   };
 
+  const handleToggleStudentStatus = (id, currentStatus) => {
+    updateStudent(id, { isActive: currentStatus === false ? true : false });
+    loadData();
+  };
+
+  const handleEditStudent = (student) => {
+    const newName = prompt("Edit Nama Siswa:", student.name);
+    if (newName && newName.trim() !== "") {
+      const newPassword = prompt("Edit Password (kosongkan jika tidak ingin mengubah):");
+      const updates = { name: newName };
+      if (newPassword && newPassword.trim() !== "") updates.password = newPassword;
+      updateStudent(student.id, updates);
+      loadData();
+    }
+  };
+
+  const handleDeleteStudent = (id) => {
+    if (window.confirm("Peringatan: Menghapus siswa akan menghapus seluruh data progres mereka secara permanen. Lanjutkan?")) {
+      deleteStudent(id);
+      loadData();
+    }
+  };
+
   const formatTime = (seconds) => {
     const h = Math.floor(seconds / 3600);
     const m = Math.floor((seconds % 3600) / 60);
@@ -206,18 +229,20 @@ const TeacherDashboard = () => {
           <table className="w-full text-left whitespace-nowrap">
             <thead className="bg-gray-900 text-gray-400">
               <tr>
-                <th className="px-6 py-4 font-medium min-w-[200px]">Peringkat</th>
+                <th className="px-6 py-4 font-medium min-w-[150px]">Peringkat</th>
                 <th className="px-6 py-4 font-medium">Nama Siswa</th>
                 <th className="px-6 py-4 font-medium text-center">Badges / Tim</th>
                 <th className="px-6 py-4 font-medium text-right">Poin Dinamis</th>
+                <th className="px-6 py-4 font-medium text-right">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-800">
               {students.map((s, index) => {
                 const rank = index + 1;
                 const teamName = teams.find(t => t.id === s.teamId)?.name;
+                const isInactive = s.isActive === false;
                 return (
-                  <tr key={s.id} className="hover:bg-gray-800/50 transition-colors">
+                  <tr key={s.id} className={`hover:bg-gray-800/50 transition-colors ${isInactive ? 'opacity-50' : ''}`}>
                     <td className="px-6 py-4">
                       {rank === 1 ? <div className="flex items-center text-yellow-500 font-bold bg-yellow-500/10 px-3 py-1.5 rounded-full w-fit"><Trophy size={18} className="mr-2" /> Emas</div> :
                        rank === 2 ? <div className="flex items-center text-gray-300 font-bold bg-gray-300/10 px-3 py-1.5 rounded-full w-fit"><Medal size={18} className="mr-2" /> Perak</div> :
@@ -225,7 +250,7 @@ const TeacherDashboard = () => {
                        <div className="flex items-center text-gray-400 font-bold px-3 py-1.5 w-fit">#{rank}</div>}
                     </td>
                     <td className="px-6 py-4">
-                      <div className="font-semibold text-gray-200">{s.name}</div>
+                      <div className="font-semibold text-gray-200">{s.name} {isInactive && <span className="text-red-500 text-xs ml-2">(Nonaktif)</span>}</div>
                       <div className="text-xs text-gray-500">@{s.username}</div>
                     </td>
                     <td className="px-6 py-4 text-center">
@@ -239,6 +264,31 @@ const TeacherDashboard = () => {
                     <td className="px-6 py-4 text-right">
                       <span className="text-cyber-neon font-mono font-bold text-lg">{s.stats.totalPoints}</span> pts
                       <div className="text-xs text-gray-500">Solved: {s.stats.solveCount} | FB: {s.stats.firstBloodCount}</div>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex justify-end space-x-2">
+                        <button 
+                          onClick={() => handleEditStudent(s)}
+                          className="p-1.5 bg-blue-900/50 hover:bg-blue-800 text-blue-400 rounded transition-colors"
+                          title="Edit Siswa"
+                        >
+                          <Edit size={16} />
+                        </button>
+                        <button 
+                          onClick={() => handleToggleStudentStatus(s.id, s.isActive)}
+                          className={`p-1.5 rounded transition-colors ${isInactive ? 'bg-green-900/50 hover:bg-green-800 text-green-400' : 'bg-gray-800 hover:bg-gray-700 text-gray-400'}`}
+                          title={isInactive ? "Aktifkan Siswa" : "Nonaktifkan Siswa"}
+                        >
+                          {isInactive ? <Power size={16} /> : <PowerOff size={16} />}
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteStudent(s.id)}
+                          className="p-1.5 bg-red-900/50 hover:bg-red-800 text-red-400 rounded transition-colors"
+                          title="Hapus Siswa"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
