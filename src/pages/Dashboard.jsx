@@ -31,7 +31,7 @@ const Dashboard = ({ user }) => {
   }, [user.id]);
 
   const myRank = leaderboard.findIndex(s => s.id === user.id) + 1;
-  const myTeam = teams.find(t => t.id === user.teamId);
+  const myTeam = teamStats.find(t => t.id === user.teamId);
 
   const handleCreateTeam = (e) => {
     e.preventDefault();
