@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { challenges } from '../data/challenges';
-import { Flag, TerminalSquare, AlertTriangle, CheckCircle, Server, BookOpen } from 'lucide-react';
+import { Flag, TerminalSquare, AlertTriangle, CheckCircle, Server, BookOpen, Skull } from 'lucide-react';
 import TerminalLab from '../components/TerminalLab';
-import { updateStudentProgress, updateCurrentActivity, getRevealedGuides } from '../utils/db';
+import { updateStudentProgress, updateCurrentActivity, getRevealedGuides, getDynamicPoints, getChallengeStats } from '../utils/db';
 
 const Challenges = ({ user }) => {
   const [filter, setFilter] = useState('All');
@@ -12,14 +12,20 @@ const Challenges = ({ user }) => {
   const [revealedGuides, setRevealedGuides] = useState([]);
   const [showSolution, setShowSolution] = useState(false);
 
-  const progressData = JSON.parse(localStorage.getItem('progress'))?.[user.id] || { points: 0, solved: [] };
-  const [solvedIds, setSolvedIds] = useState(progressData.solved);
+  const [solvedIds, setSolvedIds] = useState([]);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   useEffect(() => {
-    // Refresh revealed guides from DB periodically just in case teacher updates it live
+    const progressData = JSON.parse(localStorage.getItem('progress'))?.[user.id] || { solved: [] };
+    const ids = progressData.solved.map(s => typeof s === 'object' ? s.id : s);
+    setSolvedIds(ids);
+  }, [refreshTrigger, user.id]);
+
+  useEffect(() => {
     const interval = setInterval(() => {
       setRevealedGuides(getRevealedGuides());
-    }, 2000);
+      setRefreshTrigger(prev => prev + 1); // trigger re-render for dynamic points
+    }, 5000);
     setRevealedGuides(getRevealedGuides());
     return () => clearInterval(interval);
   }, []);
@@ -32,7 +38,7 @@ const Challenges = ({ user }) => {
     setSelectedChallenge(c);
     setStatus(null);
     setFlagInput('');
-    setShowSolution(false); // Reset solution view state
+    setShowSolution(false);
     updateCurrentActivity(user.id, c.title);
   };
 
@@ -41,9 +47,7 @@ const Challenges = ({ user }) => {
     if (flagInput.trim() === selectedChallenge.flag) {
       setStatus('success');
       updateStudentProgress(user.id, selectedChallenge.id, selectedChallenge.points);
-      if (!solvedIds.includes(selectedChallenge.id)) {
-        setSolvedIds([...solvedIds, selectedChallenge.id]);
-      }
+      setRefreshTrigger(prev => prev + 1);
     } else {
       setStatus('error');
     }
@@ -79,6 +83,9 @@ const Challenges = ({ user }) => {
             const isSolved = solvedIds.includes(c.id);
             const isRevealed = revealedGuides.includes(c.id);
             const isSelected = selectedChallenge?.id === c.id;
+            const currentPts = getDynamicPoints(c.id);
+            const stats = getChallengeStats(c.id);
+            
             return (
               <div 
                 key={c.id} 
@@ -97,8 +104,9 @@ const Challenges = ({ user }) => {
                       {isSolved && <CheckCircle size={18} className="inline mr-2 -mt-1" />}
                       {c.title}
                     </h3>
-                    <div className="bg-gray-950 border border-gray-800 px-3 py-1 rounded-md shadow-inner flex-shrink-0">
-                      <span className="text-cyber-warning font-mono font-black text-sm whitespace-nowrap">{c.points} pts</span>
+                    <div className="bg-gray-950 border border-gray-800 px-3 py-1 rounded-md shadow-inner flex-shrink-0 flex flex-col items-center">
+                      <span className="text-cyber-warning font-mono font-black text-sm whitespace-nowrap">{currentPts} pts</span>
+                      {stats.solves.length > 0 && <span className="text-[9px] text-gray-500">Solved: {stats.solves.length}</span>}
                     </div>
                   </div>
                 </div>
@@ -115,6 +123,11 @@ const Challenges = ({ user }) => {
                   <span className="text-gray-400 text-xs font-bold uppercase tracking-widest">{c.category}</span>
                   
                   <div className="ml-auto flex items-center gap-2">
+                    {stats.firstBlood && (
+                      <span className="flex items-center text-red-500 bg-red-900/20 px-2 py-1 rounded border border-red-900/50 text-xs font-bold" title="Telah dipecahkan pertama kali (First Blood)">
+                        <Skull size={12} className="mr-1" /> FB
+                      </span>
+                    )}
                     {c.requiresLab && (
                       <span className="flex items-center text-cyber-neon bg-cyan-900/20 px-2 py-1 rounded border border-cyan-900/50 text-xs font-bold" title="Requires Virtual Lab">
                         <Server size={12} className="mr-1" /> Lab
@@ -156,7 +169,7 @@ const Challenges = ({ user }) => {
             <h3 className="text-2xl font-bold text-gray-100 mb-2">{selectedChallenge.title}</h3>
             
             <div className="flex items-center space-x-3 mb-6 border-b border-gray-800 pb-4">
-              <span className="text-sm font-mono text-gray-400">{selectedChallenge.points} Points</span>
+              <span className="text-sm font-mono text-gray-400">{getDynamicPoints(selectedChallenge.id)} Points</span>
               <span className="text-gray-600">•</span>
               <span className="text-sm text-gray-400">{selectedChallenge.category}</span>
             </div>
@@ -169,7 +182,6 @@ const Challenges = ({ user }) => {
                 <p className="text-gray-300 text-sm">{selectedChallenge.hint}</p>
               </div>
 
-              {/* Tampilan Panduan jika diaktifkan Guru & di-klik oleh Siswa */}
               {hasGuideRevealed && showSolution && (
                 <div className="mt-4 p-5 bg-blue-900/20 rounded border border-blue-800 border-l-4 border-l-blue-500 animate-fade-in">
                   <p className="text-sm text-blue-400 font-bold mb-3 flex items-center border-b border-blue-900/50 pb-2">

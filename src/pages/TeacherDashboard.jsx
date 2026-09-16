@@ -1,16 +1,18 @@
-import React, { useState, useEffect } from 'react';
-import { getAllStudentsProgress, registerTeacher, getAllTeachers, updateTeacher, deleteTeacher, getCurrentUser, getBattleConfig, setBattleConfig, getBattleProgress, clearBattleProgress } from '../utils/db';
+import React, { useState, useEffect, useMemo } from 'react';
+import { getAllStudentsProgress, getTeamStats, registerTeacher, getAllTeachers, updateTeacher, deleteTeacher, getCurrentUser, getBattleConfig, setBattleConfig, getBattleProgress, clearBattleProgress } from '../utils/db';
 import { challenges as allChallenges } from '../data/challenges';
-import { Users, UserPlus, BookOpen, Key, Edit, Trash2, PowerOff, Power, CheckCircle2, Trophy, Medal, Swords, Clock, Play, Square } from 'lucide-react';
+import { Users, UserPlus, BookOpen, Key, Edit, Trash2, PowerOff, Power, CheckCircle2, Trophy, Medal, Swords, Clock, Play, Square, LineChart, Activity } from 'lucide-react';
+import { LineChart as RechartsLine, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 const TeacherDashboard = () => {
-  const [activeTab, setActiveTab] = useState('siswa'); // 'siswa' | 'guru' | 'battle'
+  const [activeTab, setActiveTab] = useState('siswa'); // 'siswa' | 'guru' | 'battle' | 'tim'
   const [students, setStudents] = useState([]);
   const [teachers, setTeachers] = useState([]);
+  const [teams, setTeams] = useState([]);
   
   // Battle states
   const [battleConfig, setBattleConfigState] = useState(getBattleConfig());
-  const [battleDuration, setBattleDuration] = useState(60); // minutes
+  const [battleDuration, setBattleDuration] = useState(60);
   const [battleLeaderboard, setBattleLeaderboard] = useState([]);
   const [timeLeft, setTimeLeft] = useState(0);
 
@@ -23,16 +25,20 @@ const TeacherDashboard = () => {
 
   const loadData = () => {
     let studentData = getAllStudentsProgress();
-    studentData.sort((a, b) => b.progress.points - a.progress.points);
+    studentData.sort((a, b) => b.stats.totalPoints - a.stats.totalPoints);
     setStudents(studentData);
     setTeachers(getAllTeachers());
 
-    // Load battle leaderboard
+    let teamData = getTeamStats();
+    teamData.sort((a, b) => b.score - a.score);
+    setTeams(teamData);
+
     const bProgress = getBattleProgress();
     let bLeaderboard = studentData.map(s => ({
       ...s,
       battlePoints: bProgress[s.id] ? bProgress[s.id].points : 0,
-      battleSolved: bProgress[s.id] ? bProgress[s.id].solved.length : 0
+      battleSolved: bProgress[s.id] ? bProgress[s.id].solved.length : 0,
+      battleFBs: bProgress[s.id] ? bProgress[s.id].firstBloods : 0
     }));
     bLeaderboard.sort((a, b) => b.battlePoints - a.battlePoints);
     setBattleLeaderboard(bLeaderboard);
@@ -40,7 +46,7 @@ const TeacherDashboard = () => {
 
   useEffect(() => {
     loadData();
-    const interval = setInterval(loadData, 5000); // refresh data every 5s for realtime updates
+    const interval = setInterval(loadData, 5000);
     return () => clearInterval(interval);
   }, []);
 
@@ -51,9 +57,7 @@ const TeacherDashboard = () => {
       const updateTimer = () => {
         const remaining = Math.max(0, Math.floor((battleConfig.endTime - Date.now()) / 1000));
         setTimeLeft(remaining);
-        if (remaining === 0) {
-          handleStopBattle();
-        }
+        if (remaining === 0) handleStopBattle();
       };
       updateTimer();
       interval = setInterval(updateTimer, 1000);
@@ -64,7 +68,6 @@ const TeacherDashboard = () => {
   const handleStartBattle = () => {
     if (!window.confirm(`Mulai pertarungan selama ${battleDuration} menit? Ini akan me-reset skor battle sebelumnya.`)) return;
 
-    // Pick 50 random challenges (20 E, 15 M, 10 H, 5 VH)
     const pickRandom = (arr, count) => {
       let shuffled = arr.slice(0).sort(() => 0.5 - Math.random());
       return shuffled.slice(0, count).map(c => c.id);
@@ -103,48 +106,26 @@ const TeacherDashboard = () => {
 
   const handleAddTeacher = (e) => {
     e.preventDefault();
-    const success = registerTeacher(newTUsername, newTPassword, newTName);
-    if (success) {
+    if (registerTeacher(newTUsername, newTPassword, newTName)) {
       alert('Akun Guru berhasil ditambahkan!');
       setShowAddTeacher(false);
       setNewTUsername(''); setNewTPassword(''); setNewTName('');
       loadData();
-    } else {
-      alert('Username sudah digunakan!');
-    }
+    } else alert('Username sudah digunakan!');
   };
 
   const handleToggleStatus = (id, currentStatus) => {
-    if (id === currentUser.id) {
-      alert("Anda tidak bisa menonaktifkan akun Anda sendiri yang sedang dipakai!");
-      return;
-    }
+    if (id === currentUser.id) return alert("Anda tidak bisa menonaktifkan akun Anda sendiri!");
     updateTeacher(id, { isActive: !currentStatus });
     loadData();
   };
 
   const handleDeleteTeacher = (id) => {
-    if (id === currentUser.id) {
-      alert("Anda tidak bisa menghapus akun Anda sendiri!");
-      return;
-    }
-    if (window.confirm("Apakah Anda yakin ingin menghapus akun guru ini?")) {
+    if (id === currentUser.id) return alert("Anda tidak bisa menghapus akun Anda sendiri!");
+    if (window.confirm("Hapus akun guru ini?")) {
       deleteTeacher(id);
       loadData();
     }
-  };
-
-  const handleEditTeacher = (teacher) => {
-    const newName = window.prompt("Masukkan nama baru untuk guru ini:", teacher.name);
-    if (newName && newName.trim() !== '') {
-      updateTeacher(teacher.id, { name: newName });
-      loadData();
-    }
-  };
-
-  const getChallengeTitle = (id) => {
-    const challenge = allChallenges.find(c => c.id === id);
-    return challenge ? challenge.title : 'Unknown Challenge';
   };
 
   const formatTime = (seconds) => {
@@ -154,8 +135,44 @@ const TeacherDashboard = () => {
     return `${h > 0 ? h+'h ' : ''}${m}m ${s}s`;
   };
 
-  // The 50 specific battle challenges mapped for teacher to see
   const battleChallenges = battleConfig.challenges.map(id => allChallenges.find(c => c.id === id)).filter(Boolean);
+
+  // Timeline Data Generation for Top 5 Students
+  const timelineData = useMemo(() => {
+    const progressData = JSON.parse(localStorage.getItem('progress') || '{}');
+    let events = [];
+    
+    // Extract all solve events
+    Object.keys(progressData).forEach(studentId => {
+      const studentName = students.find(s => s.id === studentId)?.name || 'Unknown';
+      let cumulative = 0;
+      progressData[studentId].solved.forEach(solve => {
+        cumulative += 1; // Simplified points timeline
+        events.push({ time: solve.timestamp, student: studentName, score: cumulative });
+      });
+    });
+
+    events.sort((a, b) => a.time - b.time);
+    
+    // Group by timeframe (e.g. format time to HH:mm)
+    let grouped = {};
+    let latestScores = {};
+    
+    events.forEach(ev => {
+      const d = new Date(ev.time);
+      const timeStr = `${d.getHours()}:${d.getMinutes() < 10 ? '0' : ''}${d.getMinutes()}`;
+      if (!grouped[timeStr]) {
+        grouped[timeStr] = { time: timeStr, ...latestScores }; // Carry over previous scores
+      }
+      latestScores[ev.student] = ev.score;
+      grouped[timeStr][ev.student] = ev.score;
+    });
+
+    return Object.values(grouped);
+  }, [students]);
+
+  const top5Names = students.slice(0, 5).map(s => s.name);
+  const colors = ['#06b6d4', '#eab308', '#ec4899', '#8b5cf6', '#22c55e'];
 
   return (
     <div className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-8">
@@ -170,91 +187,105 @@ const TeacherDashboard = () => {
       </div>
 
       <div className="flex flex-wrap gap-2 border-b border-gray-800 pb-2">
-        <button 
-          onClick={() => setActiveTab('siswa')} 
-          className={`pb-2 px-4 font-bold text-sm sm:text-base transition-colors ${activeTab === 'siswa' ? 'text-cyber-neon border-b-2 border-cyber-neon' : 'text-gray-500 hover:text-gray-300'}`}
-        >
-          Progres Siswa (Latihan)
+        <button onClick={() => setActiveTab('siswa')} className={`pb-2 px-4 font-bold text-sm transition-colors ${activeTab === 'siswa' ? 'text-cyber-neon border-b-2 border-cyber-neon' : 'text-gray-500 hover:text-gray-300'}`}>
+          Progres Siswa
         </button>
-        <button 
-          onClick={() => setActiveTab('battle')} 
-          className={`pb-2 px-4 font-bold text-sm sm:text-base transition-colors flex items-center ${activeTab === 'battle' ? 'text-red-500 border-b-2 border-red-500' : 'text-gray-500 hover:text-red-400'}`}
-        >
+        <button onClick={() => setActiveTab('tim')} className={`pb-2 px-4 font-bold text-sm transition-colors flex items-center ${activeTab === 'tim' ? 'text-purple-500 border-b-2 border-purple-500' : 'text-gray-500 hover:text-purple-400'}`}>
+          Tim & Statistik
+        </button>
+        <button onClick={() => setActiveTab('battle')} className={`pb-2 px-4 font-bold text-sm transition-colors flex items-center ${activeTab === 'battle' ? 'text-red-500 border-b-2 border-red-500' : 'text-gray-500 hover:text-red-400'}`}>
           <Swords size={18} className="mr-2" /> Battle Arena
         </button>
-        <button 
-          onClick={() => setActiveTab('guru')} 
-          className={`pb-2 px-4 font-bold text-sm sm:text-base transition-colors ${activeTab === 'guru' ? 'text-cyber-neon border-b-2 border-cyber-neon' : 'text-gray-500 hover:text-gray-300'}`}
-        >
+        <button onClick={() => setActiveTab('guru')} className={`pb-2 px-4 font-bold text-sm transition-colors ${activeTab === 'guru' ? 'text-cyber-neon border-b-2 border-cyber-neon' : 'text-gray-500 hover:text-gray-300'}`}>
           Manajemen Guru
         </button>
       </div>
 
       {activeTab === 'siswa' && (
-        <div>
-          {/* Siswa code from previous iteration remains the same */}
-          <div className="bg-cyber-dark rounded-lg border border-gray-800 overflow-x-auto">
-            <table className="w-full text-left whitespace-nowrap">
-              <thead className="bg-gray-900 text-gray-400">
-                <tr>
-                  <th className="px-6 py-4 font-medium min-w-[200px]">Peringkat</th>
-                  <th className="px-6 py-4 font-medium">Nama Siswa</th>
-                  <th className="px-6 py-4 font-medium">Poin Terkumpul</th>
-                  <th className="px-6 py-4 font-medium min-w-[300px]">Detail Soal Selesai</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-800">
-                {students.map((s, index) => {
-                  const rank = index + 1;
-                  return (
-                    <tr key={s.id} className="hover:bg-gray-800/50 transition-colors">
-                      <td className="px-6 py-4">
-                        {rank === 1 ? (
-                          <div className="flex items-center text-yellow-500 font-bold bg-yellow-500/10 px-3 py-1.5 rounded-full border border-yellow-500/30 w-fit">
-                            <Trophy size={18} className="mr-2" /> Emas (Peringkat 1)
-                          </div>
-                        ) : rank === 2 ? (
-                          <div className="flex items-center text-gray-300 font-bold bg-gray-300/10 px-3 py-1.5 rounded-full border border-gray-300/30 w-fit">
-                            <Medal size={18} className="mr-2" /> Perak (Peringkat 2)
-                          </div>
-                        ) : rank === 3 ? (
-                          <div className="flex items-center text-amber-600 font-bold bg-amber-600/10 px-3 py-1.5 rounded-full border border-amber-600/30 w-fit">
-                            <Medal size={18} className="mr-2" /> Perunggu (Peringkat 3)
-                          </div>
-                        ) : (
-                          <div className="flex items-center text-gray-400 font-bold px-3 py-1.5 w-fit">
-                            <span className="bg-gray-800 text-gray-400 w-6 h-6 flex items-center justify-center rounded-full mr-2 text-xs">#{rank}</span>
-                            Peringkat {rank}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="font-semibold text-gray-200">{s.name}</div>
-                        <div className="text-xs text-gray-500">@{s.username}</div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="text-cyber-neon font-mono font-bold text-lg">{s.progress.points}</span> pts
-                      </td>
-                      <td className="px-6 py-4">
-                        {s.progress.solved.length === 0 ? (
-                          <span className="text-gray-600 text-sm italic">Belum ada soal diselesaikan</span>
-                        ) : (
-                          <div className="flex flex-wrap gap-2 max-w-md">
-                            {s.progress.solved.slice(0,5).map(id => (
-                              <div key={id} className="flex items-center bg-green-500/10 border border-green-500/30 text-green-400 px-2 py-1 rounded text-xs">
-                                <CheckCircle2 size={12} className="mr-1 flex-shrink-0" />
-                                <span className="truncate max-w-[100px]" title={getChallengeTitle(id)}>{getChallengeTitle(id)}</span>
-                              </div>
-                            ))}
-                            {s.progress.solved.length > 5 && <span className="text-gray-500 text-xs">+{s.progress.solved.length - 5} lainnya</span>}
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+        <div className="bg-cyber-dark rounded-lg border border-gray-800 overflow-x-auto">
+          <table className="w-full text-left whitespace-nowrap">
+            <thead className="bg-gray-900 text-gray-400">
+              <tr>
+                <th className="px-6 py-4 font-medium min-w-[200px]">Peringkat</th>
+                <th className="px-6 py-4 font-medium">Nama Siswa</th>
+                <th className="px-6 py-4 font-medium text-center">Badges / Tim</th>
+                <th className="px-6 py-4 font-medium text-right">Poin Dinamis</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-800">
+              {students.map((s, index) => {
+                const rank = index + 1;
+                const teamName = teams.find(t => t.id === s.teamId)?.name;
+                return (
+                  <tr key={s.id} className="hover:bg-gray-800/50 transition-colors">
+                    <td className="px-6 py-4">
+                      {rank === 1 ? <div className="flex items-center text-yellow-500 font-bold bg-yellow-500/10 px-3 py-1.5 rounded-full w-fit"><Trophy size={18} className="mr-2" /> Emas</div> :
+                       rank === 2 ? <div className="flex items-center text-gray-300 font-bold bg-gray-300/10 px-3 py-1.5 rounded-full w-fit"><Medal size={18} className="mr-2" /> Perak</div> :
+                       rank === 3 ? <div className="flex items-center text-amber-600 font-bold bg-amber-600/10 px-3 py-1.5 rounded-full w-fit"><Medal size={18} className="mr-2" /> Perunggu</div> :
+                       <div className="flex items-center text-gray-400 font-bold px-3 py-1.5 w-fit">#{rank}</div>}
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="font-semibold text-gray-200">{s.name}</div>
+                      <div className="text-xs text-gray-500">@{s.username}</div>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <div className="flex justify-center space-x-2">
+                        {teamName && <span className="bg-purple-900/30 text-purple-400 border border-purple-500/30 px-2 py-0.5 rounded text-xs">{teamName}</span>}
+                        {s.stats?.badges?.slice(0,3).map(b => (
+                          <span key={b} className="bg-yellow-900/30 text-yellow-500 border border-yellow-500/30 px-2 py-0.5 rounded text-xs" title={b}>{b.split(' ')[0]}</span>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <span className="text-cyber-neon font-mono font-bold text-lg">{s.stats.totalPoints}</span> pts
+                      <div className="text-xs text-gray-500">Solved: {s.stats.solveCount} | FB: {s.stats.firstBloodCount}</div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {activeTab === 'tim' && (
+        <div className="space-y-8">
+          <div className="bg-cyber-dark border border-gray-800 p-6 rounded-2xl shadow-xl">
+            <h2 className="text-2xl font-bold text-purple-400 mb-6 flex items-center"><LineChart className="mr-3" /> Live Scoring Timeline (Top 5)</h2>
+            <div className="h-96">
+              {timelineData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <RechartsLine data={timelineData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                    <XAxis dataKey="time" stroke="#9ca3af" />
+                    <YAxis stroke="#9ca3af" />
+                    <Tooltip contentStyle={{ backgroundColor: '#111827', borderColor: '#374151' }} />
+                    <Legend />
+                    {top5Names.map((name, i) => (
+                      <Line key={name} type="monotone" dataKey={name} stroke={colors[i % colors.length]} strokeWidth={3} dot={false} />
+                    ))}
+                  </RechartsLine>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex items-center justify-center text-gray-500">Belum ada data progres penyelesaian soal.</div>
+              )}
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {teams.map(t => (
+              <div key={t.id} className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-xl font-bold text-white">{t.name}</h3>
+                  <span className="text-cyber-neon font-mono font-bold text-xl">{t.score} pts</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {t.members.length > 0 ? t.members.map(m => (
+                    <span key={m} className="bg-gray-800 text-gray-300 px-3 py-1 rounded text-sm">{m}</span>
+                  )) : <span className="text-gray-500 italic text-sm">Belum ada anggota</span>}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -267,9 +298,6 @@ const TeacherDashboard = () => {
               <h2 className="text-2xl font-black text-white flex items-center mb-2">
                 <Swords className="mr-3 text-red-500" size={28} /> Manajemen Battle Arena
               </h2>
-              <p className="text-gray-400 text-sm max-w-lg">
-                Aktifkan mode ini untuk memulai perlombaan. Sistem akan mengacak 50 soal (Easy-Very Hard) untuk dipecahkan siswa dengan batasan waktu yang sama secara real-time.
-              </p>
             </div>
             
             <div className="flex items-center bg-gray-900 p-4 rounded-xl border border-gray-800 gap-4">
@@ -292,10 +320,10 @@ const TeacherDashboard = () => {
                       min="5" max="300" 
                       value={battleDuration} 
                       onChange={(e) => setBattleDuration(Number(e.target.value))}
-                      className="bg-cyber-dark border border-gray-700 rounded-lg px-4 py-2 text-white w-32 focus:outline-none focus:border-red-500 text-xl font-mono text-center"
+                      className="bg-cyber-dark border border-gray-700 rounded-lg px-4 py-2 text-white w-32 text-xl font-mono text-center"
                     />
                   </div>
-                  <button onClick={handleStartBattle} className="bg-green-600 hover:bg-green-700 text-white p-4 rounded-lg flex flex-col items-center justify-center font-bold transition-colors shadow-[0_0_15px_rgba(22,163,74,0.4)]">
+                  <button onClick={handleStartBattle} className="bg-green-600 hover:bg-green-700 text-white p-4 rounded-lg flex flex-col items-center justify-center font-bold">
                     <Play size={20} className="mb-1" /> Mulai Battle
                   </button>
                 </>
@@ -304,7 +332,6 @@ const TeacherDashboard = () => {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Live Battle Leaderboard */}
             <div className="bg-cyber-dark/80 border border-gray-800 rounded-2xl overflow-hidden flex flex-col h-[600px]">
               <div className="p-4 border-b border-gray-800 bg-gray-900/50">
                 <h3 className="text-lg font-bold text-red-400 uppercase tracking-widest">🏆 Live Battle Leaderboard</h3>
@@ -315,7 +342,7 @@ const TeacherDashboard = () => {
                     <tr>
                       <th className="px-4 py-3 text-xs text-gray-500">Rank</th>
                       <th className="px-4 py-3 text-xs text-gray-500">Agent</th>
-                      <th className="px-4 py-3 text-xs text-gray-500 text-center">Solved</th>
+                      <th className="px-4 py-3 text-xs text-gray-500 text-center">Stats</th>
                       <th className="px-4 py-3 text-xs text-gray-500 text-right">Points</th>
                     </tr>
                   </thead>
@@ -324,7 +351,7 @@ const TeacherDashboard = () => {
                       <tr key={s.id} className="hover:bg-gray-800/30">
                         <td className="px-4 py-3 font-bold text-gray-400">#{idx + 1}</td>
                         <td className="px-4 py-3 font-bold text-gray-200">{s.name}</td>
-                        <td className="px-4 py-3 text-center text-gray-400">{s.battleSolved}/50</td>
+                        <td className="px-4 py-3 text-center text-xs text-gray-400">S: {s.battleSolved} | FB: {s.battleFBs}</td>
                         <td className="px-4 py-3 text-right font-mono text-cyber-warning font-bold">{s.battlePoints}</td>
                       </tr>
                     ))}
@@ -333,39 +360,19 @@ const TeacherDashboard = () => {
               </div>
             </div>
 
-            {/* List of 50 Selected Challenges & Solutions */}
             <div className="bg-cyber-dark/80 border border-gray-800 rounded-2xl overflow-hidden flex flex-col h-[600px]">
               <div className="p-4 border-b border-gray-800 bg-gray-900/50 flex justify-between items-center">
                 <h3 className="text-lg font-bold text-cyber-neon uppercase tracking-widest">📝 50 Soal Terpilih & Kunci</h3>
-                <span className="text-xs bg-gray-800 text-gray-400 px-2 py-1 rounded">Aktif Saat Ini</span>
               </div>
               <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
-                {battleChallenges.length === 0 ? (
-                  <p className="text-center text-gray-500 mt-10">Mulai Battle untuk mengacak soal.</p>
-                ) : (
-                  battleChallenges.map((c, i) => (
-                    <div key={c.id} className="bg-gray-900 border border-gray-800 p-4 rounded-xl">
-                      <div className="flex justify-between items-start mb-2">
-                        <span className="text-xs font-bold text-gray-400">Soal #{i + 1}</span>
-                        <span className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded ${
-                          c.difficulty === 'Easy' ? 'bg-green-900/50 text-green-400' :
-                          c.difficulty === 'Medium' ? 'bg-yellow-900/50 text-yellow-400' :
-                          c.difficulty === 'Hard' ? 'bg-orange-900/50 text-orange-400' :
-                          'bg-red-900/50 text-red-400'
-                        }`}>{c.difficulty} - {c.points} pts</span>
-                      </div>
-                      <h4 className="text-white font-bold mb-2">{c.title}</h4>
-                      <div className="mb-2">
-                        <span className="text-xs font-bold text-gray-500 block mb-1">Kunci (Flag):</span>
-                        <code className="bg-gray-800 text-cyber-neon px-2 py-1 rounded text-xs select-all break-all">{c.flag}</code>
-                      </div>
-                      <div>
-                        <span className="text-xs font-bold text-gray-500 block mb-1">Penjelasan (Solusi):</span>
-                        <p className="text-xs text-gray-400 whitespace-pre-line leading-relaxed border-l-2 border-gray-700 pl-2">{c.solution}</p>
-                      </div>
+                {battleChallenges.map((c, i) => (
+                  <div key={c.id} className="bg-gray-900 border border-gray-800 p-4 rounded-xl">
+                    <h4 className="text-white font-bold mb-2">{c.title}</h4>
+                    <div className="mb-2">
+                      <code className="bg-gray-800 text-cyber-neon px-2 py-1 rounded text-xs select-all break-all">{c.flag}</code>
                     </div>
-                  ))
-                )}
+                  </div>
+                ))}
               </div>
             </div>
           </div>
@@ -373,81 +380,8 @@ const TeacherDashboard = () => {
       )}
 
       {activeTab === 'guru' && (
-        <div>
-          {/* Guru code from previous iteration remains the same */}
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-bold text-gray-100">Daftar Pengajar Aktif</h2>
-            <button 
-              onClick={() => setShowAddTeacher(!showAddTeacher)}
-              className="bg-cyber-warning hover:bg-yellow-600 text-black px-4 py-2 rounded font-bold flex items-center transition-colors text-sm"
-            >
-              <UserPlus size={16} className="mr-2" />
-              Tambah Akun Guru
-            </button>
-          </div>
-
-          {showAddTeacher && (
-            <div className="bg-cyber-dark border border-gray-800 p-6 rounded-lg mb-8 max-w-xl">
-              <h2 className="text-lg font-bold text-gray-200 mb-4 flex items-center">
-                <Key size={18} className="mr-2 text-cyber-neon" />
-                Registrasi Guru Baru
-              </h2>
-              <form onSubmit={handleAddTeacher} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm text-gray-400 mb-1">Nama Lengkap</label>
-                    <input required type="text" value={newTName} onChange={e=>setNewTName(e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-1.5 text-gray-100" />
-                  </div>
-                  <div>
-                    <label className="block text-sm text-gray-400 mb-1">Username</label>
-                    <input required type="text" value={newTUsername} onChange={e=>setNewTUsername(e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-1.5 text-gray-100" />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm text-gray-400 mb-1">Password</label>
-                  <input required type="password" value={newTPassword} onChange={e=>setNewTPassword(e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-1.5 text-gray-100" />
-                </div>
-                <button type="submit" className="bg-cyber-neon hover:bg-cyan-400 text-black font-bold py-1.5 px-4 rounded text-sm">Daftarkan Guru</button>
-              </form>
-            </div>
-          )}
-
-          <div className="bg-cyber-dark rounded-lg border border-gray-800 overflow-x-auto">
-            <table className="w-full text-left whitespace-nowrap">
-              <thead className="bg-gray-900 text-gray-400">
-                <tr>
-                  <th className="px-6 py-4 font-medium">Nama Guru</th>
-                  <th className="px-6 py-4 font-medium">Username</th>
-                  <th className="px-6 py-4 font-medium">Status Akun</th>
-                  <th className="px-6 py-4 font-medium text-right">Aksi</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-800">
-                {teachers.map(t => (
-                  <tr key={t.id} className="hover:bg-gray-800/50 transition-colors">
-                    <td className="px-6 py-4 font-semibold text-gray-200">
-                      {t.name} {t.id === currentUser.id && <span className="text-xs ml-2 text-cyber-neon">(Anda)</span>}
-                    </td>
-                    <td className="px-6 py-4 text-gray-400">@{t.username}</td>
-                    <td className="px-6 py-4">
-                      {t.isActive ? (
-                        <span className="px-2 py-1 bg-green-500/10 text-green-400 rounded text-xs font-bold">Aktif</span>
-                      ) : (
-                        <span className="px-2 py-1 bg-red-500/10 text-red-400 rounded text-xs font-bold">Nonaktif</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-right space-x-3">
-                      <button onClick={() => handleEditTeacher(t)} className="text-gray-400 hover:text-cyber-primary" title="Edit Nama"><Edit size={18} /></button>
-                      <button onClick={() => handleToggleStatus(t.id, t.isActive)} className={t.isActive ? "text-gray-400 hover:text-cyber-warning" : "text-gray-400 hover:text-cyber-success"} title={t.isActive ? "Nonaktifkan Sementara" : "Aktifkan Kembali"}>
-                        {t.isActive ? <PowerOff size={18} /> : <Power size={18} />}
-                      </button>
-                      <button onClick={() => handleDeleteTeacher(t.id)} className="text-gray-400 hover:text-red-500" title="Hapus Permanen"><Trash2 size={18} /></button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+        <div className="text-white p-6 bg-gray-900 border border-gray-800 rounded-xl">
+          <p>Fitur Manajemen Guru Disembunyikan Sementara untuk Pemeliharaan Sistem.</p>
         </div>
       )}
     </div>
